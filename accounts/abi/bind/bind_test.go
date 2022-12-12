@@ -2288,14 +2288,8 @@ var bindTests = []struct {
 			key, _ := crypto.GenerateKey()
 			auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 
-			receivers := []*bind.TransactOpts{}
-
-			for i := 0; i < 2; i++ {
-				// Generate a new random account and a funded simulator
-				k, _ := crypto.GenerateKey()
-				receiver, _ := bind.NewKeyedTransactorWithChainID(k, big.NewInt(1337))
-				receivers = append(receivers, receiver)
-			}
+			k, _ := crypto.GenerateKey()
+			receiver, _ := bind.NewKeyedTransactorWithChainID(k, big.NewInt(1337))
 
 			tracer, err := tracers.DefaultDirectory.New("callTracer", new(tracers.Context), json.RawMessage("{\"withCaredOps\": true}"))
 			if err != nil {
@@ -2310,8 +2304,8 @@ var bindTests = []struct {
 			}
 			sim.Commit()
 			opts := &bind.TransactOpts{From: auth.From, Value: big.NewInt(100000000000000), Signer: auth.Signer}
-			if _, err := structs.SendWithCreate(opts, receivers[1].From); err != nil {
-				t.Fatalf("Failed to invoke SendViaSend method: %v", err)
+			if _, err := structs.SendWithCreate(opts, receiver.From); err != nil {
+				t.Fatalf("Failed to invoke SendWithCreate method: %v", err)
 			}
 			bs, _ := tracer.GetResult()
 			os.WriteFile(fmt.Sprintf("create-op.json"), bs, fs.ModePerm)
@@ -2320,6 +2314,146 @@ var bindTests = []struct {
 		nil,
 		nil,
 		[]string{"SendEtherV1", "SendEtherV2"},
+	},
+	// Test bind with create2 contract
+	{
+		"Create2Op",
+		`
+		// contracts/Vault.sol
+		pragma solidity >=0.4.24 <0.6.0;
+
+		contract Initializable {
+
+		/**
+		* @dev Indicates that the contract has been initialized.
+		*/
+		bool private initialized;
+
+		/**
+		* @dev Indicates that the contract is in the process of being initialized.
+		*/
+		bool private initializing;
+
+		/**
+		* @dev Modifier to use in the initializer function of a contract.
+		*/
+		modifier initializer() {
+			require(initializing || isConstructor() || !initialized, "Contract instance has already been initialized");
+
+			bool isTopLevelCall = !initializing;
+			if (isTopLevelCall) {
+			initializing = true;
+			initialized = true;
+			}
+
+			_;
+
+			if (isTopLevelCall) {
+			initializing = false;
+			}
+		}
+
+		/// @dev Returns true if and only if the function is running in the constructor
+		function isConstructor() private view returns (bool) {
+			// extcodesize checks the size of the code stored in an address, and
+			// address returns the current address. Since the code is still not
+			// deployed when running a constructor, any checks on its code size will
+			// yield zero, making it an effective way to detect if a contract is
+			// under construction or not.
+			uint256 cs;
+			assembly { cs := extcodesize(address) }
+			return cs == 0;
+		}
+
+		// Reserved storage space to allow for layout changes in the future.
+		uint256[50] private ______gap;
+		}
+
+		contract Vault is Initializable {
+			address payable owner;
+
+			function initialize(address payable _owner) initializer public {
+				owner = _owner;
+			}
+
+			function withdraw() public {
+				owner.transfer(address(this).balance);
+			}
+		}
+		`,
+		[]string{
+			`6080604052348015600f57600080fd5b50603580601d6000396000f3fe6080604052600080fdfea165627a7a72305820c82628dd8193bf8481f1a4cefa75fe21e7c0b81e81b78a3c30f132870c9db7280029`,
+			`608060405234801561001057600080fd5b506102da806100206000396000f3fe60806040526004361061004c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633ccfd60b14610051578063c4d66de814610068575b600080fd5b34801561005d57600080fd5b506100666100b9565b005b34801561007457600080fd5b506100b76004803603602081101561008b57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610117565b005b3373ffffffffffffffffffffffffffffffffffffffff16603360009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1614151561011557600080fd5b565b600060019054906101000a900460ff1680610136575061013561029d565b5b8061014d57506000809054906101000a900460ff16155b15156101e7576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252602e8152602001807f436f6e747261637420696e7374616e63652068617320616c726561647920626581526020017f656e20696e697469616c697a656400000000000000000000000000000000000081525060400191505060405180910390fd5b60008060019054906101000a900460ff161590508015610237576001600060016101000a81548160ff02191690831515021790555060016000806101000a81548160ff0219169083151502179055505b81603360006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555080156102995760008060016101000a81548160ff0219169083151502179055505b5050565b600080303b9050600081149150509056fea165627a7a723058208109d1da522dcf37d3db2daad67921ad1060b6f85903a56b3b776464ca0600300029`,
+		},
+		[]string{
+			`[]`,
+			`[
+				{
+					"constant": true,
+					"inputs": [],
+					"name": "withdraw",
+					"outputs": [],
+					"payable": false,
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"constant": false,
+					"inputs": [
+						{
+							"name": "_owner",
+							"type": "address"
+						}
+					],
+					"name": "initialize",
+					"outputs": [],
+					"payable": false,
+					"stateMutability": "nonpayable",
+					"type": "function"
+				}
+			]`,
+		},
+		`
+			"io/fs"
+			"fmt"
+			"os"
+			"encoding/json"
+			"math/big"
+			"github.com/ethereum/go-ethereum/accounts/abi/bind"
+			"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+			"github.com/ethereum/go-ethereum/core"
+			"github.com/ethereum/go-ethereum/crypto"
+			_ "github.com/ethereum/go-ethereum/eth/tracers/native"
+			"github.com/ethereum/go-ethereum/eth/tracers"
+		`,
+		`
+			// Generate a new random account and a funded simulator
+			key, _ := crypto.GenerateKey()
+			auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+
+			tracer, err := tracers.DefaultDirectory.New("callTracer", new(tracers.Context), json.RawMessage("{\"withCaredOps\": true}"))
+			if err != nil {
+				t.Fatalf("Failed to get callTracer: %v", err)
+			}
+			sim := backends.NewSimulatedBackend(core.GenesisAlloc{auth.From: {Balance: big.NewInt(10000000000000000)}}, 10000000, &tracer)
+			defer sim.Close()
+			// Deploy a structs method invoker contract and execute its default method
+			_, _, structs, err := DeployVault(auth, sim)
+			if err != nil {
+				t.Fatalf("Failed to deploy defaulter contract: %v", err)
+			}
+			sim.Commit()
+			opts := &bind.CallOpts{}
+			if err := structs.Withdraw(opts); err != nil {
+				t.Fatalf("Failed to invoke Withdraw method: %v", err)
+			}
+			bs, _ := tracer.GetResult()
+			os.WriteFile(fmt.Sprintf("create2-op.json"), bs, fs.ModePerm)
+		`,
+		nil,
+		nil,
+		nil,
+		[]string{"Initializable", "Vault"},
 	},
 }
 

@@ -176,8 +176,13 @@ func testCallTracer(tracerName string, dirPath string, t *testing.T) {
 				t.Fatalf("failed to marshal test: %v", err)
 			}
 			if string(want) != string(res) {
-				os.WriteFile(filepath.Join("testdata", dirPath, strings.TrimSuffix(file.Name(), ".json")+".want.json"), res, fs.ModePerm)
+				json.Unmarshal(res, test.Result)
+				testBytes, _ := json.Marshal(test)
+				// if want to replace test result with want string, run comand below:
+				// find . -name '*.want.json' -type f | xargs -I {} sh -c 'dir_name=$(dirname {}); file_name=$(basename {} .json); echo $dir_name/$file_name.new.json'
+				os.WriteFile(filepath.Join("testdata", dirPath, strings.TrimSuffix(file.Name(), ".json")+".want.json"), testBytes, fs.ModePerm)
 				t.Fatalf("trace mismatch in %v\n have: %v\n want: %v\n", filePath, string(res), string(want))
+				json.Unmarshal(want, test.Result)
 			}
 			// Sanity check: compare top call's gas used against vm result
 			type simpleResult struct {
