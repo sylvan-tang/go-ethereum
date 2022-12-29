@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -539,7 +540,7 @@ var bindTests = []struct {
 				struct A {
 					bytes32 B;
 				}
-				
+
 				function F() public view returns (A[] memory a, uint256[] memory c, bool[] memory d) {
 					A[] memory a = new A[](2);
 					a[0].B = bytes32(uint256(1234) << 96);
@@ -547,7 +548,7 @@ var bindTests = []struct {
 					bool[] memory d;
 					return (a, c, d);
 				}
-			
+
 				function G() public view returns (A[] memory a) {
 					A[] memory a = new A[](2);
 					a[0].B = bytes32(uint256(1234) << 96);
@@ -569,10 +570,10 @@ var bindTests = []struct {
 			// Generate a new random account and a funded simulator
 			key, _ := crypto.GenerateKey()
 			auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-		
+
 			sim := backends.NewSimulatedBackend(core.GenesisAlloc{auth.From: {Balance: big.NewInt(10000000000000000)}}, 10000000)
 			defer sim.Close()
-		
+
 			// Deploy a structs method invoker contract and execute its default method
 			_, _, structs, err := DeployStructs(auth, sim)
 			if err != nil {
@@ -737,7 +738,10 @@ var bindTests = []struct {
 				}
 			}
 		`, []string{`6060604052346000575b6086806100176000396000f300606060405263ffffffff60e060020a60003504166349f8e98281146022575b6000565b34600057602c6055565b6040805173ffffffffffffffffffffffffffffffffffffffff9092168252519081900360200190f35b335b905600a165627a7a72305820aef6b7685c0fa24ba6027e4870404a57df701473fe4107741805c19f5138417c0029`},
-		[]string{`[{"constant":true,"inputs":[],"name":"callFrom","outputs":[{"name":"","type":"address"}],"payable":false,"type":"function"}]`},
+		[]string{`
+		[{"constant":true,"inputs":[],"name":"callFrom","outputs":[{"name":"","type":"address"}],"payable":false,"type":"function"}]
+		`,
+		},
 		`
 			"math/big"
 
@@ -1699,13 +1703,13 @@ var bindTests = []struct {
 		`NewFallbacks`,
 		`
 		pragma solidity >=0.6.0 <0.7.0;
-	
+
 		contract NewFallbacks {
 			event Fallback(bytes data);
 			fallback() external {
 				emit Fallback(msg.data);
 			}
-	
+
 			event Received(address addr, uint value);
 			receive() external payable {
 				emit Received(msg.sender, msg.value);
@@ -1717,7 +1721,7 @@ var bindTests = []struct {
 		`
 			"bytes"
 			"math/big"
-	
+
 			"github.com/ethereum/go-ethereum/accounts/abi/bind"
 			"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 			"github.com/ethereum/go-ethereum/core"
@@ -1726,22 +1730,22 @@ var bindTests = []struct {
 		`
 			key, _ := crypto.GenerateKey()
 			addr := crypto.PubkeyToAddress(key.PublicKey)
-	
+
 			sim := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(10000000000000000)}}, 1000000)
 			defer sim.Close()
-	
+
 			opts, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 			_, _, c, err := DeployNewFallbacks(opts, sim)
 			if err != nil {
 				t.Fatalf("Failed to deploy contract: %v", err)
 			}
 			sim.Commit()
-	
+
 			// Test receive function
 			opts.Value = big.NewInt(100)
 			c.Receive(opts)
 			sim.Commit()
-	
+
 			var gotEvent bool
 			iter, _ := c.FilterReceived(nil)
 			defer iter.Close()
@@ -1758,14 +1762,14 @@ var bindTests = []struct {
 			if !gotEvent {
 				t.Fatal("Expect to receive event emitted by receive")
 			}
-	
+
 			// Test fallback function
 			gotEvent = false
 			opts.Value = nil
 			calldata := []byte{0x01, 0x02, 0x03}
 			c.Fallback(opts, calldata)
 			sim.Commit()
-	
+
 			iter2, _ := c.FilterFallback(nil)
 			defer iter2.Close()
 			for iter2.Next() {
@@ -1860,7 +1864,7 @@ var bindTests = []struct {
 		`NewErrors`,
 		`
 		pragma solidity >0.8.4;
-	
+
 		contract NewErrors {
 			error MyError(uint256);
 			error MyError1(uint256);
@@ -1875,7 +1879,7 @@ var bindTests = []struct {
 		[]string{`[{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"MyError","type":"error"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"MyError1","type":"error"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"MyError2","type":"error"},{"inputs":[{"internalType":"uint256","name":"a","type":"uint256"},{"internalType":"uint256","name":"b","type":"uint256"},{"internalType":"uint256","name":"c","type":"uint256"}],"name":"MyError3","type":"error"},{"inputs":[],"name":"Error","outputs":[],"stateMutability":"pure","type":"function"}]`},
 		`
 			"math/big"
-	
+
 			"github.com/ethereum/go-ethereum/accounts/abi/bind"
 			"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 			"github.com/ethereum/go-ethereum/core"
@@ -1889,7 +1893,7 @@ var bindTests = []struct {
 				sim     = backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, ethconfig.Defaults.Miner.GasCeil)
 			)
 			defer sim.Close()
-	
+
 			_, tx, contract, err := DeployNewErrors(user, sim)
 			if err != nil {
 				t.Fatal(err)
@@ -1914,12 +1918,12 @@ var bindTests = []struct {
 		name: `ConstructorWithStructParam`,
 		contract: `
 		pragma solidity >=0.8.0 <0.9.0;
-		
+
 		contract ConstructorWithStructParam {
 			struct StructType {
 				uint256 field;
 			}
-		
+
 			constructor(StructType memory st) {}
 		}
 		`,
@@ -1947,7 +1951,7 @@ var bindTests = []struct {
 				t.Fatalf("DeployConstructorWithStructParam() got err %v; want nil err", err)
 			}
 			sim.Commit()
-			
+
 			if _, err = bind.WaitDeployed(nil, sim, tx); err != nil {
 				t.Logf("Deployment tx: %+v", tx)
 				t.Errorf("bind.WaitDeployed(nil, %T, <deployment tx>) got err %v; want nil err", sim, err)
@@ -1995,7 +1999,7 @@ var bindTests = []struct {
 				t.Fatalf("DeployNameConflict() got err %v; want nil err", err)
 			}
 			sim.Commit()
-			
+
 			if _, err = bind.WaitDeployed(nil, sim, tx); err != nil {
 				t.Logf("Deployment tx: %+v", tx)
 				t.Errorf("bind.WaitDeployed(nil, %T, <deployment tx>) got err %v; want nil err", sim, err)
@@ -2039,6 +2043,118 @@ var bindTests = []struct {
 			}
 		`,
 	},
+	// Test bind with internal transaction
+	{
+		"InternalTransaction",
+		`
+		// SPDX-License-Identifier: MIT
+		pragma solidity ^0.8.17;
+
+		contract SendEther {
+			address payable private _payableReceiver;
+			bool private _payble;
+
+			event PayableReceiver(address payable indexed payableReceiver);
+
+			function sendViaSend(address payable _to) public payable {
+				// Send returns a boolean value indicating success or failure.
+				// This function is not recommended for sending Ether.
+				bool sent = _to.send(msg.value / 2);
+				require(sent, "Failed to send Ether");
+				if (_payble) {
+					bool sendBack = _payableReceiver.send(msg.value / 2);
+					require(sendBack, "Failed to send Ether to last caller");
+				}
+				_payableReceiver = _to;
+				_payble = true;
+				emit PayableReceiver(_payableReceiver);
+			}
+		}
+		`,
+		[]string{`608060405234801561001057600080fd5b50610482806100206000396000f3fe60806040526004361061001e5760003560e01c806374be480614610023575b600080fd5b61003d600480360381019061003891906102a6565b61003f565b005b60008173ffffffffffffffffffffffffffffffffffffffff166108fc600234610068919061030c565b9081150290604051600060405180830381858888f193505050509050806100c4576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100bb9061039a565b60405180910390fd5b600060149054906101000a900460ff16156101815760008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166108fc600234610123919061030c565b9081150290604051600060405180830381858888f1935050505090508061017f576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101769061042c565b60405180910390fd5b505b816000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055506001600060146101000a81548160ff02191690831515021790555060008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167fe38bfb4c48fbc55ba234e5160b339e3df541af75d181a209e1fcb1a2e87a41da60405160405180910390a25050565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061027382610248565b9050919050565b61028381610268565b811461028e57600080fd5b50565b6000813590506102a08161027a565b92915050565b6000602082840312156102bc576102bb610243565b5b60006102ca84828501610291565b91505092915050565b6000819050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b6000610317826102d3565b9150610322836102d3565b925082610332576103316102dd565b5b828204905092915050565b600082825260208201905092915050565b7f4661696c656420746f2073656e64204574686572000000000000000000000000600082015250565b600061038460148361033d565b915061038f8261034e565b602082019050919050565b600060208201905081810360008301526103b381610377565b9050919050565b7f4661696c656420746f2073656e6420457468657220746f206c6173742063616c60008201527f6c65720000000000000000000000000000000000000000000000000000000000602082015250565b600061041660238361033d565b9150610421826103ba565b604082019050919050565b6000602082019050818103600083015261044581610409565b905091905056fea264697066735822122084dd753928b50f1ed62e69a35acc1e28c20767e3139b6cf23f572d60a6c114a864736f6c63430008110033`},
+		[]string{`
+		[
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address payable",
+						"name": "payableReceiver",
+						"type": "address"
+					}
+				],
+				"name": "PayableReceiver",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address payable",
+						"name": "_to",
+						"type": "address"
+					}
+				],
+				"name": "sendViaSend",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			}
+		]
+		`,
+		},
+		`
+			"math/big"
+
+			"github.com/ethereum/go-ethereum/accounts/abi/bind"
+			"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+			"github.com/ethereum/go-ethereum/core"
+			"github.com/ethereum/go-ethereum/crypto"
+		`,
+		`
+			// Generate a new random account and a funded simulator
+			key, _ := crypto.GenerateKey()
+			auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+		
+			receivers := []*bind.TransactOpts{}
+		
+			for i := 0; i < 2; i++ {
+				// Generate a new random account and a funded simulator
+				k, _ := crypto.GenerateKey()
+				receiver, _ := bind.NewKeyedTransactorWithChainID(k, big.NewInt(1337))
+				receivers = append(receivers, receiver)
+			}
+		
+			sim := backends.NewSimulatedBackend(core.GenesisAlloc{auth.From: {Balance: big.NewInt(10000000000000000)}}, 10000000)
+			defer sim.Close()
+		
+			// Deploy a structs method invoker contract and execute its default method
+			_, _, structs, err := DeployInternalTransaction(auth, sim)
+			if err != nil {
+				t.Fatalf("Failed to deploy defaulter contract: %v", err)
+			}
+			sim.Commit()
+			for _, receiver := range receivers {
+				opts := &bind.TransactOpts{From: auth.From, Value: big.NewInt(100000000000000), Signer: auth.Signer}
+				if _, err := structs.SendViaSend(opts, receiver.From); err != nil {
+					t.Fatalf("Failed to invoke SendViaSend method: %v", err)
+				}
+			}
+		`,
+		nil,
+		nil,
+		nil,
+		nil,
+	},
+}
+
+func getRuntimePackagePath(rootStep int) string {
+	_, filename, _, _ := runtime.Caller(1)
+	rootPath := filename
+	for i := 0; i < rootStep; i++ {
+		rootPath = path.Dir(rootPath)
+	}
+	return rootPath
 }
 
 // Tests that packages generated by the binder can be successfully compiled and
@@ -2050,9 +2166,9 @@ func TestGolangBindings(t *testing.T) {
 		t.Skip("go sdk not found for testing")
 	}
 	// Create a temporary workspace for the test suite
-	ws := t.TempDir()
-
+	ws := filepath.Join(getRuntimePackagePath(4), "local") // for local debug
 	pkg := filepath.Join(ws, "bindtest")
+	os.RemoveAll(pkg)
 	if err := os.MkdirAll(pkg, 0700); err != nil {
 		t.Fatalf("failed to create package: %v", err)
 	}
