@@ -28,8 +28,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 // Lengths of hashes and addresses in bytes.
@@ -41,8 +42,9 @@ const (
 )
 
 var (
-	hashT    = reflect.TypeOf(Hash{})
-	addressT = reflect.TypeOf(Address{})
+	hashT       = reflect.TypeOf(Hash{})
+	addressT    = reflect.TypeOf(Address{})
+	ZeroAddress = Address{}
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
