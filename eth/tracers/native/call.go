@@ -171,6 +171,7 @@ func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, sco
 	stackLen := len(stackData)
 	caller := scope.Contract.Address()
 	var addr common.Address
+	value := *big.NewInt(0)
 	switch {
 	case vm.OpInGroup(op, vm.LOG0, vm.LOG1, vm.LOG2, vm.LOG3, vm.LOG4):
 		size := int(op - vm.LOG0)
@@ -191,6 +192,7 @@ func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, sco
 		t.callstack[len(t.callstack)-1].Logs = append(t.callstack[len(t.callstack)-1].Logs, log)
 	case stackLen >= 5 && vm.OpInGroup(op, vm.CALL, vm.CALLCODE, vm.DELEGATECALL, vm.STATICCALL):
 		addr = common.Address(stackData[stackLen-2].Bytes20())
+		value.SetBytes(stackData[stackLen-3].Bytes())
 	case vm.OpInGroup(op, vm.CREATE):
 		nonce := t.env.StateDB.GetNonce(caller)
 		addr = crypto.CreateAddress(caller, nonce)
@@ -209,7 +211,7 @@ func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, sco
 			To:    addr,
 			Input: common.CopyBytes(scope.Contract.Input),
 			Gas:   gas,
-			Value: scope.Contract.Value(),
+			Value: &value,
 		}
 		t.callstack[len(t.callstack)-1].CaredOps = append(t.callstack[len(t.callstack)-1].CaredOps, cf)
 	}
