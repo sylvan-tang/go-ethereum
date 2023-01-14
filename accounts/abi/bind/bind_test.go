@@ -2174,6 +2174,153 @@ var bindTests = []struct {
 		nil,
 		nil,
 	},
+	// Test bind with create contract
+	{
+		"CreateOp",
+		`
+		// SPDX-License-Identifier: MIT
+		pragma solidity ^0.8.17;
+
+		contract SendEtherV1 {
+
+			event PayableReceiver(address payable indexed to);
+
+			function send(address payable _to) public payable {
+				// Send returns a boolean value indicating success or failure.
+				// This function is not recommended for sending Ether.
+				bool sent = _to.send(msg.value / 2);
+				require(sent, "Failed to send Ether");
+				emit PayableReceiver(_to);
+			}
+		}
+
+		contract SendEtherV2 {
+			event PayableReceiver(address payable indexed to);
+
+			function sendWithCreate(address payable _to) public payable {
+				// Send returns a boolean value indicating success or failure.
+				// This function is not recommended for sending Ether.
+				bool sent = _to.send(msg.value / 2);
+				require(sent, "Failed to send Ether");
+				SendEtherV1 sendEther = new SendEtherV1();
+				sendEther.send(_to);
+				emit PayableReceiver(_to);
+			}
+		}
+		`,
+		[]string{
+			`608060405234801561001057600080fd5b506102b8806100206000396000f3fe60806040526004361061001e5760003560e01c80633e58c58c14610023575b600080fd5b61003d6004803603810190610038919061016e565b61003f565b005b60008173ffffffffffffffffffffffffffffffffffffffff166108fc60023461006891906101d4565b9081150290604051600060405180830381858888f193505050509050806100c4576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100bb90610262565b60405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff167fe38bfb4c48fbc55ba234e5160b339e3df541af75d181a209e1fcb1a2e87a41da60405160405180910390a25050565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061013b82610110565b9050919050565b61014b81610130565b811461015657600080fd5b50565b60008135905061016881610142565b92915050565b6000602082840312156101845761018361010b565b5b600061019284828501610159565b91505092915050565b6000819050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b60006101df8261019b565b91506101ea8361019b565b9250826101fa576101f96101a5565b5b828204905092915050565b600082825260208201905092915050565b7f4661696c656420746f2073656e64204574686572000000000000000000000000600082015250565b600061024c601483610205565b915061025782610216565b602082019050919050565b6000602082019050818103600083015261027b8161023f565b905091905056fea264697066735822122065d48da4ad49acc7677bb3f0dbafffaffb0e0229b0fc12b692bb6bb18c70878364736f6c63430008110033`,
+			`608060405234801561001057600080fd5b50610660806100206000396000f3fe60806040526004361061001e5760003560e01c806382b47f8e14610023575b600080fd5b61003d60048036038101906100389190610214565b61003f565b005b60008173ffffffffffffffffffffffffffffffffffffffff166108fc600234610068919061027a565b9081150290604051600060405180830381858888f193505050509050806100c4576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100bb90610308565b60405180910390fd5b60006040516100d2906101a4565b604051809103906000f0801580156100ee573d6000803e3d6000fd5b5090508073ffffffffffffffffffffffffffffffffffffffff16633e58c58c846040518263ffffffff1660e01b815260040161012a9190610337565b600060405180830381600087803b15801561014457600080fd5b505af1158015610158573d6000803e3d6000fd5b505050508273ffffffffffffffffffffffffffffffffffffffff167fe38bfb4c48fbc55ba234e5160b339e3df541af75d181a209e1fcb1a2e87a41da60405160405180910390a2505050565b6102d88061035383390190565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006101e1826101b6565b9050919050565b6101f1816101d6565b81146101fc57600080fd5b50565b60008135905061020e816101e8565b92915050565b60006020828403121561022a576102296101b1565b5b6000610238848285016101ff565b91505092915050565b6000819050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b600061028582610241565b915061029083610241565b9250826102a05761029f61024b565b5b828204905092915050565b600082825260208201905092915050565b7f4661696c656420746f2073656e64204574686572000000000000000000000000600082015250565b60006102f26014836102ab565b91506102fd826102bc565b602082019050919050565b60006020820190508181036000830152610321816102e5565b9050919050565b610331816101d6565b82525050565b600060208201905061034c6000830184610328565b9291505056fe608060405234801561001057600080fd5b506102b8806100206000396000f3fe60806040526004361061001e5760003560e01c80633e58c58c14610023575b600080fd5b61003d6004803603810190610038919061016e565b61003f565b005b60008173ffffffffffffffffffffffffffffffffffffffff166108fc60023461006891906101d4565b9081150290604051600060405180830381858888f193505050509050806100c4576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100bb90610262565b60405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff167fe38bfb4c48fbc55ba234e5160b339e3df541af75d181a209e1fcb1a2e87a41da60405160405180910390a25050565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061013b82610110565b9050919050565b61014b81610130565b811461015657600080fd5b50565b60008135905061016881610142565b92915050565b6000602082840312156101845761018361010b565b5b600061019284828501610159565b91505092915050565b6000819050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b60006101df8261019b565b91506101ea8361019b565b9250826101fa576101f96101a5565b5b828204905092915050565b600082825260208201905092915050565b7f4661696c656420746f2073656e64204574686572000000000000000000000000600082015250565b600061024c601483610205565b915061025782610216565b602082019050919050565b6000602082019050818103600083015261027b8161023f565b905091905056fea264697066735822122065d48da4ad49acc7677bb3f0dbafffaffb0e0229b0fc12b692bb6bb18c70878364736f6c63430008110033a264697066735822122030625a97256d9ca1635a3aac169d256211475453b36c42d483f70051be2833f264736f6c63430008110033`,
+		},
+		[]string{
+			`[
+				{
+					"anonymous": false,
+					"inputs": [
+						{
+							"indexed": true,
+							"internalType": "address payable",
+							"name": "to",
+							"type": "address"
+						}
+					],
+					"name": "PayableReceiver",
+					"type": "event"
+				},
+				{
+					"inputs": [
+						{
+							"internalType": "address payable",
+							"name": "_to",
+							"type": "address"
+						}
+					],
+					"name": "send",
+					"outputs": [],
+					"stateMutability": "payable",
+					"type": "function"
+				}
+			]`,
+			`[
+				{
+					"anonymous": false,
+					"inputs": [
+						{
+							"indexed": true,
+							"internalType": "address payable",
+							"name": "to",
+							"type": "address"
+						}
+					],
+					"name": "PayableReceiver",
+					"type": "event"
+				},
+				{
+					"inputs": [
+						{
+							"internalType": "address payable",
+							"name": "_to",
+							"type": "address"
+						}
+					],
+					"name": "sendWithCreate",
+					"outputs": [],
+					"stateMutability": "payable",
+					"type": "function"
+				}
+			]`,
+		},
+		`
+			"io/fs"
+			"fmt"
+			"os"
+			"encoding/json"
+			"math/big"
+			"github.com/ethereum/go-ethereum/accounts/abi/bind"
+			"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+			"github.com/ethereum/go-ethereum/core"
+			"github.com/ethereum/go-ethereum/crypto"
+			_ "github.com/ethereum/go-ethereum/eth/tracers/native"
+			"github.com/ethereum/go-ethereum/eth/tracers"
+		`,
+		`
+			// Generate a new random account and a funded simulator
+			key, _ := crypto.GenerateKey()
+			auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+
+			receivers := []*bind.TransactOpts{}
+
+			for i := 0; i < 2; i++ {
+				// Generate a new random account and a funded simulator
+				k, _ := crypto.GenerateKey()
+				receiver, _ := bind.NewKeyedTransactorWithChainID(k, big.NewInt(1337))
+				receivers = append(receivers, receiver)
+			}
+
+			tracer, err := tracers.DefaultDirectory.New("callTracer", new(tracers.Context), json.RawMessage("{\"withCaredOps\": true}"))
+			if err != nil {
+				t.Fatalf("Failed to get callTracer: %v", err)
+			}
+			sim := backends.NewSimulatedBackend(core.GenesisAlloc{auth.From: {Balance: big.NewInt(10000000000000000)}}, 10000000, &tracer)
+			defer sim.Close()
+			// Deploy a structs method invoker contract and execute its default method
+			_, _, structs, err := DeploySendEtherV2(auth, sim)
+			if err != nil {
+				t.Fatalf("Failed to deploy defaulter contract: %v", err)
+			}
+			sim.Commit()
+			opts := &bind.TransactOpts{From: auth.From, Value: big.NewInt(100000000000000), Signer: auth.Signer}
+			if _, err := structs.SendWithCreate(opts, receivers[1].From); err != nil {
+				t.Fatalf("Failed to invoke SendViaSend method: %v", err)
+			}
+			bs, _ := tracer.GetResult()
+			os.WriteFile(fmt.Sprintf("create-op.json"), bs, fs.ModePerm)
+		`,
+		nil,
+		nil,
+		nil,
+		[]string{"SendEtherV1", "SendEtherV2"},
+	},
 }
 
 func getRuntimePackagePath(rootStep int) string {
