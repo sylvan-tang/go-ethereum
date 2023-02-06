@@ -7,7 +7,6 @@
 GOBIN = ./build/bin
 GO ?= latest
 GORUN = env GO111MODULE=on go run
-TEST_ARGS ?= ""
 GOPATH = $(shell go env GOPATH)
 
 geth:
@@ -19,7 +18,7 @@ all:
 	$(GORUN) build/ci.go install
 
 test: all
-	$(GORUN) build/ci.go test $(TEST_ARGS)
+	$(GORUN) build/ci.go test
 
 format:
 	env GO111MODULE=on go install golang.org/x/tools/cmd/goimports@latest
